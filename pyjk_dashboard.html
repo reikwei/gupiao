@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="refresh" content="60">
-    <title>土豆A股监控分析系统 通达信数据源</title>
+    <title>土豆A股监控分析系统</title>
     <style>
         :root {
             --bg: #f6f1e7;
@@ -131,7 +131,7 @@
                 <div class="table-wrap">
                     <table class="stats-table">
                         <thead><tr><th>归档原因 \ 来源任务</th><th>盘中监控</th><th>盘后复盘</th><th>合计</th></tr></thead>
-                        <tbody><tr><th>低分清理</th><td>11</td><td>0</td><td>11</td></tr><tr><th>手工停用</th><td>0</td><td>0</td><td>0</td></tr><tr><th>模拟止盈</th><td>0</td><td>0</td><td>0</td></tr><tr><th>模拟止损</th><td>0</td><td>0</td><td>0</td></tr><tr><th>合计</th><td>11</td><td>0</td><td>19</td></tr></tbody>
+                        <tbody><tr><th>低分清理</th><td>11</td><td>0</td><td>11</td></tr><tr><th>手工停用</th><td>0</td><td>0</td><td>0</td></tr><tr><th>止盈</th><td>0</td><td>0</td><td>0</td></tr><tr><th>止损</th><td>0</td><td>0</td><td>0</td></tr><tr><th>合计</th><td>11</td><td>0</td><td>19</td></tr></tbody>
                     </table>
                 </div>
                 <p class="archive-hint">历史归档默认只显示核心列；止盈/止损记录可点击行展开退出细节。</p>
@@ -141,8 +141,8 @@
                 <button class="active" data-filter="all">全部 19</button>
                 <button data-filter="low-score">低分清理 11</button>
                 <button data-filter="manual-stop">手工停用 0</button>
-                <button data-filter="take-profit">模拟止盈 0</button>
-                <button data-filter="stop-loss">模拟止损 0</button>
+                <button data-filter="take-profit">止盈 0</button>
+                <button data-filter="stop-loss">止损 0</button>
             </div>
             <div class="table-wrap">
                 <table id="archiveTable">
@@ -151,7 +151,7 @@
                 </table>
             </div>
         </section>
-        <div class="footer">最后生成时间：2026-05-18 18:39:36</div>
+        <div class="footer">最后生成时间：2026-05-18 18:57:39</div>
     </div>
     <script>
         const panels = Array.from(document.querySelectorAll('.panel'));
