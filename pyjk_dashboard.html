@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="refresh" content="60">
+    <title>土豆A股监控分析系统</title>
+    <style>
+        :root {
+            --bg: #f6f1e7;
+            --panel: #fffaf1;
+            --ink: #1f2328;
+            --muted: #6b7280;
+            --line: #d7ccb9;
+            --accent: #1d6b57;
+            --profit: #b74d2c;
+            --loss: #375a9e;
+            --paused: #7d6a58;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background: linear-gradient(180deg, #efe5d4 0%, var(--bg) 100%); color: var(--ink); }
+        .page { max-width: 1400px; margin: 0 auto; padding: 24px; }
+        .hero { display: grid; gap: 16px; }
+        .title { padding: 24px; border: 1px solid var(--line); background: var(--panel); border-radius: 18px; box-shadow: 0 12px 30px rgba(68, 52, 30, 0.08); }
+        .title h1 { margin: 0 0 8px; font-size: 30px; }
+        .title p { margin: 0; color: var(--muted); line-height: 1.7; }
+        .tabs { display: flex; gap: 10px; margin: 18px 0 10px; }
+        .tab-button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 10px 16px; border-radius: 999px; cursor: pointer; }
+        .tab-button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .panel { display: none; }
+        .panel.active { display: block; }
+        .summary { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .card { padding: 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 24px rgba(68, 52, 30, 0.06); }
+        .card .label { color: var(--muted); font-size: 13px; }
+        .card .value { margin-top: 8px; font-size: 28px; font-weight: 700; }
+        .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
+        .toolbar input { flex: 1 1 280px; min-width: 240px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: #fffdf8; }
+        .toolbar button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 10px 14px; border-radius: 999px; cursor: pointer; }
+        .toolbar button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 18px; background: rgba(255, 250, 241, 0.96); box-shadow: 0 12px 30px rgba(68, 52, 30, 0.08); }
+        .stats-block { margin-top: 18px; }
+        .stats-title { margin: 0 0 10px; font-size: 15px; color: var(--muted); }
+        .stats-table { min-width: 720px; }
+        .archive-hint { margin: 14px 0 0; color: var(--muted); font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; min-width: 1320px; }
+        th, td { padding: 11px 12px; border-bottom: 1px solid rgba(215, 204, 185, 0.75); text-align: left; white-space: nowrap; }
+        th { position: sticky; top: 0; background: #f3e8d8; font-size: 13px; z-index: 1; }
+        tr[data-status="take-profit"] td { background: rgba(183, 77, 44, 0.08); }
+        tr[data-status="stop-loss"] td { background: rgba(55, 90, 158, 0.08); }
+        tr[data-status="stopped"] td { background: rgba(125, 106, 88, 0.08); color: #5a5048; }
+        tr[data-status="low-score"] td { background: rgba(125, 106, 88, 0.08); color: #5a5048; }
+        tr[data-status="manual-stop"] td { background: rgba(29, 107, 87, 0.08); color: #235346; }
+        tr[data-has-detail="true"] td { cursor: pointer; }
+        tr[data-has-detail="true"].expanded td { box-shadow: inset 0 0 0 999px rgba(29, 107, 87, 0.08); }
+        .archive-detail-row td { white-space: normal; background: #fffdf8; }
+        .archive-detail-card { display: grid; gap: 12px; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 14px 4px; }
+        .detail-item { border: 1px solid rgba(215, 204, 185, 0.75); border-radius: 14px; background: rgba(255, 250, 241, 0.96); padding: 12px; }
+        .detail-label { font-size: 12px; color: var(--muted); }
+        .detail-value { margin-top: 8px; font-size: 14px; line-height: 1.6; word-break: break-word; }
+        .footer { margin-top: 14px; color: var(--muted); font-size: 13px; }
+        @media (max-width: 960px) {
+            .summary { grid-template-columns: repeat(2, 1fr); }
+            .archive-detail-card { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 640px) {
+            .summary { grid-template-columns: 1fr; }
+            .archive-detail-card { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <section class="hero">
+            <div class="title">
+                <h1>土豆A股监控分析系统</h1>
+                <p>系统每日 9.35、10.30、14.35 三次更新。个人系统，仅作参考。</p>
+            </div>
+            <div class="summary">
+                <div class="card"><div class="label">活动监控</div><div class="value">14</div></div>
+                <div class="card"><div class="label">止盈</div><div class="value">0</div></div>
+                <div class="card"><div class="label">止损</div><div class="value">0</div></div>
+                <div class="card"><div class="label">平均累计收益率</div><div class="value">0.12%</div></div>
+            </div>
+        </section>
+        <div class="tabs">
+            <button class="tab-button active" data-panel="mainPanel">主台账</button>
+            <button class="tab-button" data-panel="triggerPanel">触发流水</button>
+            <button class="tab-button" data-panel="archivePanel">历史归档</button>
+        </div>
+        <section id="mainPanel" class="panel active">
+            <div class="toolbar">
+                <input id="mainSearchInput" type="search" placeholder="搜索股票代码、名称、持仓状态、观察说明...">
+                <button class="active" data-filter="all">全部 14</button>
+                <button data-filter="active">活动</button>
+                <button data-filter="take-profit">已止盈</button>
+                <button data-filter="stop-loss">已止损</button>
+                <button data-filter="stopped">已停用</button>
+            </div>
+            <div class="table-wrap">
+                <table id="dashboardTable">
+                    <thead><tr><th>股票代码</th><th>股票名称</th><th>入选日期</th><th>开仓评分</th><th>入选价格</th><th>最新收盘价</th><th>今日涨跌幅(%)</th><th>累计收益率(%)</th><th>持仓状态</th><th>出场日期</th><th>出场价格</th><th>收益率(%)</th><th>出场原因</th><th>观察说明</th><th>持续监控(Y/N)</th></tr></thead>
+                    <tbody><tr data-status="active"><td>603217</td><td>元利科技</td><td>2026-05-18 15:10:47</td><td>95</td><td>31.04</td><td>31.04</td><td>-4.40%</td><td>0.00%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑30.25</td><td>Y</td></tr><tr data-status="active"><td>002576</td><td>通达动力</td><td>2026-05-18 15:10:47</td><td>94</td><td>19.17</td><td>19.17</td><td>1.16%</td><td>0.00%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑19.09</td><td>Y</td></tr><tr data-status="active"><td>600640</td><td>国脉文化</td><td>2026-05-18 14:50:33</td><td>90</td><td>13.82</td><td>13.82</td><td>10.03%</td><td>0.00%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑13.20</td><td>Y</td></tr><tr data-status="active"><td>601678</td><td>滨化股份</td><td>2026-05-18 14:50:33</td><td>85</td><td>6.39</td><td>6.39</td><td>9.98%</td><td>0.00%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑5.36</td><td>Y</td></tr><tr data-status="active"><td>601963</td><td>重庆银行</td><td>2026-05-18 14:50:33</td><td>84</td><td>10.92</td><td>10.95</td><td>2.15%</td><td>0.27%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑10.55</td><td>Y</td></tr><tr data-status="active"><td>603301</td><td>振德医疗</td><td>2026-05-18 14:50:33</td><td>89</td><td>93.79</td><td>93.90</td><td>2.12%</td><td>0.12%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑92.13</td><td>Y</td></tr><tr data-status="active"><td>603310</td><td>巍华新材</td><td>2026-05-18 14:50:33</td><td>90</td><td>17.32</td><td>17.31</td><td>-1.98%</td><td>-0.06%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑16.55</td><td>Y</td></tr><tr data-status="active"><td>603380</td><td>易德龙</td><td>2026-05-18 14:50:33</td><td>89</td><td>39.09</td><td>39.18</td><td>5.61%</td><td>0.23%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑38.23</td><td>Y</td></tr><tr data-status="active"><td>605555</td><td>德昌股份</td><td>2026-05-18 14:50:33</td><td>90</td><td>16.58</td><td>16.61</td><td>1.59%</td><td>0.18%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑16.08</td><td>Y</td></tr><tr data-status="active"><td>688548</td><td>广钢气体</td><td>2026-05-18 14:50:33</td><td>85</td><td>32.97</td><td>33.02</td><td>3.93%</td><td>0.15%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑29.49</td><td>Y</td></tr><tr data-status="active"><td>688676</td><td>金盘科技</td><td>2026-05-18 14:50:33</td><td>95</td><td>96.03</td><td>96.30</td><td>4.03%</td><td>0.28%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑94.43</td><td>Y</td></tr><tr data-status="active"><td>002452</td><td>长高电新</td><td>2026-05-18 14:50:33</td><td>95</td><td>11.49</td><td>11.56</td><td>7.04%</td><td>0.61%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑11.22</td><td>Y</td></tr><tr data-status="active"><td>002531</td><td>天顺风能</td><td>2026-05-18 14:50:33</td><td>89</td><td>12.06</td><td>12.05</td><td>-3.14%</td><td>-0.08%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑11.70</td><td>Y</td></tr><tr data-status="active"><td>002635</td><td>安洁科技</td><td>2026-05-18 14:50:33</td><td>90</td><td>18.44</td><td>18.44</td><td>10.02%</td><td>0.00%</td><td>持有</td><td></td><td></td><td></td><td></td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑17.55</td><td>Y</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+        <section id="triggerPanel" class="panel">
+            <div class="summary">
+                <div class="card"><div class="label">触发总条数</div><div class="value">92</div></div>
+                <div class="card"><div class="label">涉及股票数</div><div class="value">23</div></div>
+                <div class="card"><div class="label">最近触发时间</div><div class="value" style="font-size:20px">2026-05-18 16:25:00</div></div>
+                <div class="card"><div class="label">导出文件</div><div class="value" style="font-size:20px">pyjk_dashboard.html</div></div>
+            </div>
+            <div class="toolbar">
+                <input id="triggerSearchInput" type="search" placeholder="搜索流水中的股票代码、名称、触发价格、观察说明...">
+            </div>
+            <div class="table-wrap">
+                <table id="triggerTable">
+                    <thead><tr><th>触发时间</th><th>股票代码</th><th>股票名称</th><th>触发价格</th><th>观察说明</th><th>写入时间</th></tr></thead>
+                    <tbody><tr><td>2026-05-18 16:25:00</td><td>600188</td><td>兖矿能源</td><td>22.04</td><td>观察金叉延续与回踩 5 日线承接；状态分60，开仓分58，支撑20.74</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>600640</td><td>国脉文化</td><td>13.82</td><td>观察是否站稳 5 日线并维持放量；状态分100，开仓分90，支撑13.20</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>600784</td><td>鲁银投资</td><td>7.93</td><td>观察是否站稳 5 日线并维持放量；状态分80，开仓分79，支撑7.21</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>601678</td><td>滨化股份</td><td>6.39</td><td>观察是否站稳 5 日线并维持放量；状态分100，开仓分85，支撑5.36</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>601816</td><td>京沪高铁</td><td>4.99</td><td>观察金叉延续与回踩 5 日线承接；状态分80，开仓分79，支撑4.97</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>601963</td><td>重庆银行</td><td>10.95</td><td>观察是否站稳 5 日线并维持放量；状态分80，开仓分84，支撑10.55</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>603217</td><td>元利科技</td><td>31.04</td><td>观察是否站稳 5 日线并维持放量；状态分100，开仓分95，支撑30.25</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>603301</td><td>振德医疗</td><td>93.90</td><td>观察是否站稳 5 日线并维持放量；状态分80，开仓分89，支撑92.13</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>603310</td><td>巍华新材</td><td>17.31</td><td>观察是否站稳 5 日线并维持放量；状态分100，开仓分90，支撑16.55</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>603380</td><td>易德龙</td><td>39.18</td><td>观察是否站稳 5 日线并维持放量；状态分80，开仓分89，支撑38.23</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>605166</td><td>聚合顺</td><td>11.50</td><td>观察金叉延续与回踩 5 日线承接；状态分20，开仓分51，压力11.50</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>605555</td><td>德昌股份</td><td>16.61</td><td>观察是否站稳 5 日线并维持放量；状态分100，开仓分90，支撑16.08</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>688162</td><td>巨一科技</td><td>34.01</td><td>观察是否站稳 5 日线并维持放量；状态分80，开仓分79，支撑32.18</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>688168</td><td>安博通</td><td>87.76</td><td>观察金叉延续与回踩 5 日线承接；状态分80，开仓分74，支撑86.04</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>688337</td><td>普源精电</td><td>64.50</td><td>观察是否站稳 5 日线并维持放量；状态分80，开仓分79，支撑60.33</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>688548</td><td>广钢气体</td><td>33.02</td><td>观察是否站稳 5 日线并维持放量；状态分100，开仓分85，支撑29.49</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>688628</td><td>优利德</td><td>96.40</td><td>观察金叉延续与回踩 5 日线承接；状态分80，开仓分64，支撑84.15</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>688676</td><td>金盘科技</td><td>96.30</td><td>观察是否站稳 5 日线并维持放量；状态分100，开仓分95，支撑94.43</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>002452</td><td>长高电新</td><td>11.56</td><td>观察是否站稳 5 日线并维持放量；状态分100，开仓分95，支撑11.22</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>002531</td><td>天顺风能</td><td>12.05</td><td>观察是否站稳 5 日线并维持放量；状态分80，开仓分89，支撑11.70</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>002576</td><td>通达动力</td><td>19.17</td><td>观察是否站稳 5 日线并维持放量；状态分80，开仓分94，支撑19.09</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>002635</td><td>安洁科技</td><td>18.44</td><td>观察是否站稳 5 日线并维持放量；状态分100，开仓分90，支撑17.55</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 16:25:00</td><td>002957</td><td>科瑞技术</td><td>47.25</td><td>观察是否站稳 5 日线并维持放量；状态分80，开仓分79，支撑44.47</td><td>2026-05-18 16:25:00</td></tr><tr><td>2026-05-18 15:58:59</td><td>600188</td><td>兖矿能源</td><td>22.04</td><td>观察金叉延续与回踩 5 日线承接；状态分60，支撑20.74</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>600640</td><td>国脉文化</td><td>13.82</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑13.20</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>600784</td><td>鲁银投资</td><td>7.93</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑7.21</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>601678</td><td>滨化股份</td><td>6.39</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑5.36</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>601816</td><td>京沪高铁</td><td>4.99</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑4.97</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>601963</td><td>重庆银行</td><td>10.95</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑10.55</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>603217</td><td>元利科技</td><td>31.04</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑30.25</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>603301</td><td>振德医疗</td><td>93.90</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑92.13</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>603310</td><td>巍华新材</td><td>17.31</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑16.55</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>603380</td><td>易德龙</td><td>39.18</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑38.23</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>605166</td><td>聚合顺</td><td>11.50</td><td>观察金叉延续与回踩 5 日线承接；状态分20，压力11.50</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>605555</td><td>德昌股份</td><td>16.61</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑16.08</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>688162</td><td>巨一科技</td><td>34.01</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑32.18</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>688168</td><td>安博通</td><td>87.76</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑86.04</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>688337</td><td>普源精电</td><td>64.50</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑60.33</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>688548</td><td>广钢气体</td><td>33.02</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑29.49</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>688628</td><td>优利德</td><td>96.40</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑84.15</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>688676</td><td>金盘科技</td><td>96.30</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑94.43</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>002452</td><td>长高电新</td><td>11.56</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑11.22</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>002531</td><td>天顺风能</td><td>12.05</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑11.70</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>002576</td><td>通达动力</td><td>19.17</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑19.09</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>002635</td><td>安洁科技</td><td>18.44</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑17.55</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:58:59</td><td>002957</td><td>科瑞技术</td><td>47.25</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑44.47</td><td>2026-05-18 15:58:59</td></tr><tr><td>2026-05-18 15:54:17</td><td>600188</td><td>兖矿能源</td><td>22.04</td><td>观察金叉延续与回踩 5 日线承接；状态分60，支撑20.74</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>600640</td><td>国脉文化</td><td>13.82</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑13.20</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>600784</td><td>鲁银投资</td><td>7.93</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑7.21</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>601678</td><td>滨化股份</td><td>6.39</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑5.36</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>601816</td><td>京沪高铁</td><td>4.99</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑4.97</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>601963</td><td>重庆银行</td><td>10.95</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑10.55</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>603217</td><td>元利科技</td><td>31.04</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑30.25</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>603301</td><td>振德医疗</td><td>93.90</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑92.13</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>603310</td><td>巍华新材</td><td>17.31</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑16.55</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>603380</td><td>易德龙</td><td>39.18</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑38.23</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>605166</td><td>聚合顺</td><td>11.50</td><td>观察金叉延续与回踩 5 日线承接；状态分20，压力11.50</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>605555</td><td>德昌股份</td><td>16.61</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑16.08</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>688162</td><td>巨一科技</td><td>34.01</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑32.18</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>688168</td><td>安博通</td><td>87.76</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑86.04</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>688337</td><td>普源精电</td><td>64.50</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑60.33</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>688548</td><td>广钢气体</td><td>33.02</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑29.49</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>688628</td><td>优利德</td><td>96.40</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑84.15</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>688676</td><td>金盘科技</td><td>96.30</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑94.43</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>002452</td><td>长高电新</td><td>11.56</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑11.22</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>002531</td><td>天顺风能</td><td>12.05</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑11.70</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>002576</td><td>通达动力</td><td>19.17</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑19.09</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>002635</td><td>安洁科技</td><td>18.44</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑17.55</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:54:17</td><td>002957</td><td>科瑞技术</td><td>47.25</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑44.47</td><td>2026-05-18 15:54:17</td></tr><tr><td>2026-05-18 15:47:39</td><td>600188</td><td>兖矿能源</td><td>22.04</td><td>观察金叉延续与回踩 5 日线承接；状态分60，支撑20.74</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>600640</td><td>国脉文化</td><td>13.82</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑13.20</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>600784</td><td>鲁银投资</td><td>7.93</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑7.21</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>601678</td><td>滨化股份</td><td>6.39</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑5.36</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>601816</td><td>京沪高铁</td><td>4.99</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑4.97</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>601963</td><td>重庆银行</td><td>10.95</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑10.55</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>603217</td><td>元利科技</td><td>31.04</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑30.25</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>603301</td><td>振德医疗</td><td>93.90</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑92.13</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>603310</td><td>巍华新材</td><td>17.31</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑16.55</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>603380</td><td>易德龙</td><td>39.18</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑38.23</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>605166</td><td>聚合顺</td><td>11.50</td><td>观察金叉延续与回踩 5 日线承接；状态分20，压力11.50</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>605555</td><td>德昌股份</td><td>16.61</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑16.08</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>688162</td><td>巨一科技</td><td>34.01</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑32.18</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>688168</td><td>安博通</td><td>87.76</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑86.04</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>688337</td><td>普源精电</td><td>64.50</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑60.33</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>688548</td><td>广钢气体</td><td>33.02</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑29.49</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>688628</td><td>优利德</td><td>96.40</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑84.15</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>688676</td><td>金盘科技</td><td>96.30</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑94.43</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>002452</td><td>长高电新</td><td>11.56</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑11.22</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>002531</td><td>天顺风能</td><td>12.05</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑11.70</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>002576</td><td>通达动力</td><td>19.17</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑19.09</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>002635</td><td>安洁科技</td><td>18.44</td><td>观察是否站稳 5 日线并维持放量；状态分100，支撑17.55</td><td>2026-05-18 15:47:40</td></tr><tr><td>2026-05-18 15:47:39</td><td>002957</td><td>科瑞技术</td><td>47.25</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑44.47</td><td>2026-05-18 15:47:40</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+        <section id="archivePanel" class="panel">
+            <div class="summary">
+                <div class="card"><div class="label">归档总条数</div><div class="value">11</div></div>
+                <div class="card"><div class="label">低分清理</div><div class="value">11</div></div>
+                <div class="card"><div class="label">手工停用</div><div class="value">0</div></div>
+                <div class="card"><div class="label">最近归档时间</div><div class="value" style="font-size:20px">2026-05-18 15:10:47</div></div>
+            </div>
+            <div class="stats-block">
+                <h3 class="stats-title">今日归档统计</h3>
+                <div class="table-wrap">
+                    <table class="stats-table">
+                        <thead><tr><th>归档原因 \ 来源任务</th><th>盘中监控</th><th>盘后复盘</th><th>合计</th></tr></thead>
+                        <tbody><tr><th>低分清理</th><td>11</td><td>0</td><td>11</td></tr><tr><th>手工停用</th><td>0</td><td>0</td><td>0</td></tr><tr><th>模拟止盈</th><td>0</td><td>0</td><td>0</td></tr><tr><th>模拟止损</th><td>0</td><td>0</td><td>0</td></tr><tr><th>合计</th><td>11</td><td>0</td><td>11</td></tr></tbody>
+                    </table>
+                </div>
+                <p class="archive-hint">历史归档默认只显示核心列；止盈/止损记录可点击行展开退出细节。</p>
+            </div>
+            <div class="toolbar">
+                <input id="archiveSearchInput" type="search" placeholder="搜索归档中的股票代码、名称、归档原因、来源任务、最后触发评分...">
+                <button class="active" data-filter="all">全部 11</button>
+                <button data-filter="low-score">低分清理 11</button>
+                <button data-filter="manual-stop">手工停用 0</button>
+                <button data-filter="take-profit">模拟止盈 0</button>
+                <button data-filter="stop-loss">模拟止损 0</button>
+            </div>
+            <div class="table-wrap">
+                <table id="archiveTable">
+                    <thead><tr><th>股票代码</th><th>股票名称</th><th>入选日期</th><th>入选价格</th><th>归档时间</th><th>归档原因</th><th>归档来源任务</th><th>归档前最后一次触发评分</th><th>观察说明</th></tr></thead>
+                    <tbody><tr data-status="low-score" data-has-detail="false" data-search=""><td>605166</td><td>聚合顺</td><td>2026-05-18 15:10:47</td><td>11.50</td><td>2026-05-18 15:10:47</td><td>低分清理</td><td>盘中监控</td><td>51</td><td>观察金叉延续与回踩 5 日线承接；状态分20，压力11.50</td></tr><tr data-status="low-score" data-has-detail="false" data-search=""><td>600188</td><td>兖矿能源</td><td>2026-05-18 14:50:33</td><td>21.95</td><td>2026-05-18 14:50:33</td><td>低分清理</td><td>盘中监控</td><td>58</td><td>观察金叉延续与回踩 5 日线承接；状态分60，支撑20.74</td></tr><tr data-status="low-score" data-has-detail="false" data-search=""><td>600784</td><td>鲁银投资</td><td>2026-05-18 14:50:33</td><td>7.93</td><td>2026-05-18 14:50:33</td><td>低分清理</td><td>盘中监控</td><td>79</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑7.21</td></tr><tr data-status="low-score" data-has-detail="false" data-search=""><td>601816</td><td>京沪高铁</td><td>2026-05-18 14:50:33</td><td>4.98</td><td>2026-05-18 14:50:33</td><td>低分清理</td><td>盘中监控</td><td>79</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑4.97</td></tr><tr data-status="low-score" data-has-detail="false" data-search=""><td>688105</td><td>诺唯赞</td><td>2026-05-18 14:50:33</td><td>21.10</td><td>2026-05-18 14:50:33</td><td>低分清理</td><td>盘中监控</td><td></td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑20.31</td></tr><tr data-status="low-score" data-has-detail="false" data-search=""><td>688162</td><td>巨一科技</td><td>2026-05-18 14:50:33</td><td>33.80</td><td>2026-05-18 14:50:33</td><td>低分清理</td><td>盘中监控</td><td>79</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑32.18</td></tr><tr data-status="low-score" data-has-detail="false" data-search=""><td>688168</td><td>安博通</td><td>2026-05-18 14:50:33</td><td>87.63</td><td>2026-05-18 14:50:33</td><td>低分清理</td><td>盘中监控</td><td>74</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑86.04</td></tr><tr data-status="low-score" data-has-detail="false" data-search=""><td>688337</td><td>普源精电</td><td>2026-05-18 14:50:33</td><td>64.05</td><td>2026-05-18 14:50:33</td><td>低分清理</td><td>盘中监控</td><td>79</td><td>观察是否站稳 5 日线并维持放量；状态分60，支撑60.33</td></tr><tr data-status="low-score" data-has-detail="false" data-search=""><td>688499</td><td>利元亨</td><td>2026-05-18 14:50:33</td><td>56.42</td><td>2026-05-18 14:50:33</td><td>低分清理</td><td>盘中监控</td><td></td><td>观察金叉延续与回踩 5 日线承接；状态分60，支撑55.16</td></tr><tr data-status="low-score" data-has-detail="false" data-search=""><td>688628</td><td>优利德</td><td>2026-05-18 14:50:33</td><td>97.13</td><td>2026-05-18 14:50:33</td><td>低分清理</td><td>盘中监控</td><td>64</td><td>观察金叉延续与回踩 5 日线承接；状态分80，支撑84.15</td></tr><tr data-status="low-score" data-has-detail="false" data-search=""><td>002957</td><td>科瑞技术</td><td>2026-05-18 14:50:33</td><td>46.80</td><td>2026-05-18 14:50:33</td><td>低分清理</td><td>盘中监控</td><td>79</td><td>观察是否站稳 5 日线并维持放量；状态分80，支撑44.47</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+        <div class="footer">最后生成时间：2026-05-18 17:36:04</div>
+    </div>
+    <script>
+        const panels = Array.from(document.querySelectorAll('.panel'));
+        const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
+        const tableRows = Array.from(document.querySelectorAll('#dashboardTable tbody tr'));
+        const triggerRows = Array.from(document.querySelectorAll('#triggerTable tbody tr'));
+        const archiveRows = Array.from(document.querySelectorAll('#archiveTable tbody tr[data-status]'));
+        const buttons = Array.from(document.querySelectorAll('#mainPanel [data-filter]'));
+        const archiveButtons = Array.from(document.querySelectorAll('#archivePanel [data-filter]'));
+        const mainSearchInput = document.getElementById('mainSearchInput');
+        const triggerSearchInput = document.getElementById('triggerSearchInput');
+        const archiveSearchInput = document.getElementById('archiveSearchInput');
+        let currentFilter = 'all';
+        let currentArchiveFilter = 'all';
+
+        function switchPanel(panelId) {
+            for (const panel of panels) {
+                panel.classList.toggle('active', panel.id === panelId);
+            }
+            for (const button of tabButtons) {
+                button.classList.toggle('active', button.dataset.panel === panelId);
+            }
+        }
+
+        function applyMainFilters() {
+            const keyword = mainSearchInput.value.trim().toLowerCase();
+            for (const row of tableRows) {
+                const matchesFilter = currentFilter === 'all' || row.dataset.status === currentFilter;
+                const matchesKeyword = !keyword || row.innerText.toLowerCase().includes(keyword);
+                row.style.display = matchesFilter && matchesKeyword ? '' : 'none';
+            }
+        }
+
+        function applyTriggerFilters() {
+            const keyword = triggerSearchInput.value.trim().toLowerCase();
+            for (const row of triggerRows) {
+                const matchesKeyword = !keyword || row.innerText.toLowerCase().includes(keyword);
+                row.style.display = matchesKeyword ? '' : 'none';
+            }
+        }
+
+        function collapseArchiveDetailRow(row) {
+            if (row.dataset.hasDetail !== 'true') {
+                return;
+            }
+            const detailRowId = row.dataset.detailRowId;
+            if (!detailRowId) {
+                return;
+            }
+            const detailRow = document.getElementById(detailRowId);
+            if (detailRow) {
+                detailRow.hidden = true;
+            }
+            row.dataset.expanded = 'false';
+            row.setAttribute('aria-expanded', 'false');
+            row.classList.remove('expanded');
+        }
+
+        function toggleArchiveDetailRow(row) {
+            if (row.dataset.hasDetail !== 'true' || row.style.display === 'none') {
+                return;
+            }
+            const detailRowId = row.dataset.detailRowId;
+            if (!detailRowId) {
+                return;
+            }
+            const detailRow = document.getElementById(detailRowId);
+            if (!detailRow) {
+                return;
+            }
+            const shouldOpen = detailRow.hidden;
+            for (const archiveRow of archiveRows) {
+                if (archiveRow !== row) {
+                    collapseArchiveDetailRow(archiveRow);
+                }
+            }
+            detailRow.hidden = !shouldOpen;
+            row.dataset.expanded = shouldOpen ? 'true' : 'false';
+            row.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+            row.classList.toggle('expanded', shouldOpen);
+        }
+
+        function applyArchiveFilters() {
+            const keyword = archiveSearchInput.value.trim().toLowerCase();
+            for (const row of archiveRows) {
+                const matchesFilter = currentArchiveFilter === 'all' || row.dataset.status === currentArchiveFilter;
+                const searchableText = `${row.innerText} ${row.dataset.search || ''}`.toLowerCase();
+                const matchesKeyword = !keyword || searchableText.includes(keyword);
+                row.style.display = matchesFilter && matchesKeyword ? '' : 'none';
+                if (!matchesFilter || !matchesKeyword) {
+                    collapseArchiveDetailRow(row);
+                }
+            }
+        }
+
+        for (const button of tabButtons) {
+            button.addEventListener('click', () => switchPanel(button.dataset.panel));
+        }
+
+        for (const button of buttons) {
+            button.addEventListener('click', () => {
+                currentFilter = button.dataset.filter;
+                for (const item of buttons) {
+                    item.classList.toggle('active', item === button);
+                }
+                applyMainFilters();
+            });
+        }
+
+        for (const button of archiveButtons) {
+            button.addEventListener('click', () => {
+                currentArchiveFilter = button.dataset.filter;
+                for (const item of archiveButtons) {
+                    item.classList.toggle('active', item === button);
+                }
+                applyArchiveFilters();
+            });
+        }
+
+        for (const row of archiveRows) {
+            if (row.dataset.hasDetail !== 'true') {
+                continue;
+            }
+            row.addEventListener('click', () => toggleArchiveDetailRow(row));
+            row.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    toggleArchiveDetailRow(row);
+                }
+            });
+        }
+
+        mainSearchInput.addEventListener('input', applyMainFilters);
+        triggerSearchInput.addEventListener('input', applyTriggerFilters);
+        archiveSearchInput.addEventListener('input', applyArchiveFilters);
+        applyMainFilters();
+        applyTriggerFilters();
+        applyArchiveFilters();
+    </script>
+</body>
+</html>
