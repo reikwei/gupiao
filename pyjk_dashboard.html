@@ -28,7 +28,7 @@
         .tab-button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
         .panel { display: none; }
         .panel.active { display: block; }
-        .summary { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .summary { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
         .card { padding: 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 24px rgba(68, 52, 30, 0.06); }
         .card .label { color: var(--muted); font-size: 13px; }
         .card .value { margin-top: 8px; font-size: 28px; font-weight: 700; }
@@ -76,8 +76,9 @@
             </div>
             <div class="summary">
                 <div class="card"><div class="label">活动监控</div><div class="value">12</div></div>
-                <div class="card"><div class="label">止盈</div><div class="value">0</div></div>
-                <div class="card"><div class="label">止损</div><div class="value">0</div></div>
+                <div class="card"><div class="label">止盈</div><div class="value">7</div></div>
+                <div class="card"><div class="label">止损</div><div class="value">16</div></div>
+                <div class="card"><div class="label">盈利率</div><div class="value">30.43%</div></div>
                 <div class="card"><div class="label">账户收益率</div><div class="value">-0.11%</div></div>
             </div>
         </section>
@@ -145,7 +146,7 @@
                 </table>
             </div>
         </section>
-        <div class="footer">最后生成时间：2026-05-22 15:35:30</div>
+        <div class="footer">最后生成时间：2026-05-22 17:07:45</div>
     </div>
     <script>
         const panels = Array.from(document.querySelectorAll('.panel'));
