@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>涨停模拟交易 - zt_jy</title>
+    <style>
+        :root {
+            --bg: #0d1016;
+            --panel: #181d28;
+            --panel-strong: #202635;
+            --line: rgba(148, 163, 184, 0.16);
+            --ink: #edf2ff;
+            --muted: #9aa4b7;
+            --accent: #ff6a7d;
+            --profit: #ff8d6b;
+            --loss: #6ab0ff;
+            --warn: #f6c56e;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "DIN Alternate", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(255, 106, 125, 0.14), transparent 24%),
+                radial-gradient(circle at top right, rgba(106, 176, 255, 0.14), transparent 26%),
+                linear-gradient(180deg, #121620 0%, var(--bg) 100%);
+        }
+        .page { max-width: 1520px; margin: 0 auto; padding: 24px 18px 40px; }
+        .hero {
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: linear-gradient(180deg, rgba(31, 37, 51, 0.98), rgba(20, 24, 34, 0.98));
+            padding: 26px 24px 22px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+        }
+        .hero h1 { margin: 0; font-size: clamp(30px, 4vw, 44px); letter-spacing: -0.03em; }
+        .hero p { margin: 12px 0 0; color: var(--muted); line-height: 1.7; }
+        .summary { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 18px; }
+        .card {
+            padding: 18px 16px;
+            border-radius: 18px;
+            border: 1px solid var(--line);
+            background: linear-gradient(180deg, rgba(32, 38, 53, 0.98), rgba(22, 27, 38, 0.98));
+        }
+        .label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+        .value { margin-top: 12px; font-size: 30px; font-weight: 700; letter-spacing: -0.04em; }
+        .section { margin-top: 22px; }
+        .section-head { display: flex; justify-content: space-between; gap: 12px; align-items: end; margin-bottom: 10px; }
+        .section-head h2 { margin: 0; font-size: 24px; }
+        .section-head p { margin: 0; color: var(--muted); font-size: 13px; }
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: linear-gradient(180deg, rgba(25, 30, 42, 0.98), rgba(16, 20, 29, 0.98));
+            padding: 16px;
+        }
+        .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 16px; background: #151a24; }
+        table { width: 100%; min-width: 980px; border-collapse: collapse; }
+        th, td { padding: 13px 14px; border-bottom: 1px solid rgba(148, 163, 184, 0.08); text-align: left; white-space: nowrap; vertical-align: top; }
+        th { position: sticky; top: 0; background: #23293a; color: #94a0b5; font-size: 12px; z-index: 1; }
+        td.wrap { white-space: normal; min-width: 240px; line-height: 1.7; }
+        .status-chip { display: inline-flex; align-items: center; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+        .status-pending { background: rgba(246, 197, 110, 0.16); color: #f6d28b; }
+        .status-holding { background: rgba(106, 176, 255, 0.16); color: #b2d5ff; }
+        .status-closed { background: rgba(255, 141, 107, 0.16); color: #ffc4ae; }
+        .status-missed { background: rgba(148, 163, 184, 0.16); color: #c6d0e0; }
+        .profit { color: var(--profit); }
+        .loss { color: var(--loss); }
+        .footer { margin-top: 16px; text-align: right; color: var(--muted); font-size: 12px; }
+        @media (max-width: 1080px) {
+            .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 720px) {
+            .page { padding: 18px 12px 30px; }
+            .summary { grid-template-columns: 1fr; }
+            .section-head { flex-direction: column; align-items: start; }
+            table { min-width: 840px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <section class="hero">
+            <h1>涨停模拟交易记录</h1>
+            <p>基于一二板复盘的盯盘池与扩展跟踪池，按 5 秒轮询执行“首次非一字封板买入 + 持仓第 2 到第 9 个交易日分时兑现”模拟交易。</p>
+        </section>
+        <section class="summary">
+            <div class="card"><div class="label">待触发</div><div class="value">10</div></div>
+            <div class="card"><div class="label">持仓中</div><div class="value">0</div></div>
+            <div class="card"><div class="label">已卖出</div><div class="value">0</div></div>
+            <div class="card"><div class="label">未成交</div><div class="value">0</div></div>
+            <div class="card"><div class="label">胜率</div><div class="value">--</div></div>
+            <div class="card"><div class="label">已实现盈亏</div><div class="value" style="color:#ff8d6b;">0.00</div></div>
+            <div class="card"><div class="label">平均单笔收益</div><div class="value">--</div></div>
+            <div class="card"><div class="label">盈亏比</div><div class="value">--</div></div>
+            <div class="card"><div class="label">单笔最大盈利</div><div class="value" style="color:#ff8d6b;">0.00%</div></div>
+            <div class="card"><div class="label">单笔最大亏损</div><div class="value" style="color:#6ab0ff;">0.00%</div></div>
+            <div class="card"><div class="label">未成交率</div><div class="value">--</div></div>
+        </section>
+        <section class="section">
+            <div class="section-head">
+                <div>
+                    <h2>待触发池</h2>
+                    <p>这些股票来自最新复盘快照，等待次日盘中首次非一字封板。</p>
+                </div>
+            </div>
+            <div class="panel"><div class="table-wrap"><table><thead><tr><th>候选买点日</th><th>来源池</th><th>股票代码</th><th>股票名称</th><th>板数</th><th>板型</th><th>题材归属</th><th>策略备注</th></tr></thead><tbody><tr><td>2026-06-16</td><td>盯盘池</td><td>002203</td><td>海亮股份</td><td>二板</td><td>换手板</td><td class="wrap">工业金属 | PET铜箔 / PCB概念 / 固态电池</td><td class="wrap">二板换手板；题材工业金属 | PET铜箔 / PCB概念 / 固态电池；状态分80；量比5日2.85倍；距5日线16.18%；封单中封单；竞价强竞价(9.90%)；突破20日新高；注意偏离5日线过大</td></tr><tr><td>2026-06-16</td><td>盯盘池</td><td>600229</td><td>城市传媒</td><td>首板</td><td>换手板</td><td class="wrap">出版 | IP经济(谷子经济) / 文化传媒概念 / 在线教育</td><td class="wrap">首板换手板；题材出版 | IP经济(谷子经济) / 文化传媒概念 / 在线教育；状态分80；量比5日2.07倍；距5日线6.80%；封单中封单；竞价平量承接(0.36%)；注意未创近20日新高</td></tr><tr><td>2026-06-16</td><td>扩展跟踪池</td><td>600862</td><td>中航高科</td><td>首板</td><td>换手板</td><td class="wrap">航空装备Ⅱ | 大飞机 / 航空发动机 / 军工</td><td class="wrap">首板换手板；题材航空装备Ⅱ | 大飞机 / 航空发动机 / 军工；状态分60；量比5日2.05倍；距5日线7.18%；封单中封单；竞价正常偏强(4.96%)；注意趋势状态分低于80；未创近20日新高</td></tr><tr><td>2026-06-16</td><td>扩展跟踪池</td><td>001233</td><td>海安集团</td><td>首板</td><td>换手板</td><td class="wrap">汽车零部件 | 注册制次新股 / 海峡两岸 / 人民币贬值受益</td><td class="wrap">首板换手板；题材汽车零部件 | 注册制次新股 / 海峡两岸 / 人民币贬值受益；状态分60；量比5日2.52倍；距5日线6.45%；封单强封单；竞价平量承接(0.64%)；注意趋势状态分低于80；未创近20日新高</td></tr><tr><td>2026-06-16</td><td>扩展跟踪池</td><td>001206</td><td>依依股份</td><td>首板</td><td>换手板</td><td class="wrap">个护用品 | 宠物经济 / 养老概念 / 三胎概念</td><td class="wrap">首板换手板；题材个护用品 | 宠物经济 / 养老概念 / 三胎概念；状态分60；量比5日2.57倍；距5日线7.34%；封单强封单；竞价平量承接(0.96%)；注意趋势状态分低于80；未创近20日新高</td></tr><tr><td>2026-06-16</td><td>扩展跟踪池</td><td>002345</td><td>潮宏基</td><td>首板</td><td>换手板</td><td class="wrap">饰品 | IP经济(谷子经济) / NFT概念 / 高股息精选</td><td class="wrap">首板换手板；题材饰品 | IP经济(谷子经济) / NFT概念 / 高股息精选；状态分60；量比5日2.18倍；距5日线9.54%；封单中封单；竞价平量承接(0.00%)；注意趋势状态分低于80；未创近20日新高</td></tr><tr><td>2026-06-16</td><td>扩展跟踪池</td><td>000758</td><td>中色股份</td><td>首板</td><td>换手板</td><td class="wrap">工业金属 | 金属锌 / 金属铜 / 金属铅</td><td class="wrap">首板换手板；题材工业金属 | 金属锌 / 金属铜 / 金属铅；状态分40；量比5日1.76倍；距5日线7.71%；封单中封单；竞价正常偏强(5.06%)；注意趋势状态分低于80；未创近20日新高</td></tr><tr><td>2026-06-16</td><td>扩展跟踪池</td><td>002985</td><td>北摩高科</td><td>首板</td><td>换手板</td><td class="wrap">航空装备Ⅱ | 大飞机 / 军民融合 / 低空经济</td><td class="wrap">首板换手板；题材航空装备Ⅱ | 大飞机 / 军民融合 / 低空经济；状态分60；量比5日1.49倍；距5日线6.39%；封单强封单；竞价平量承接(1.50%)；注意趋势状态分低于80；未创近20日新高</td></tr><tr><td>2026-06-16</td><td>扩展跟踪池</td><td>000099</td><td>中信海直</td><td>首板</td><td>换手板</td><td class="wrap">航空机场 | 旅游概念 / 数字经济 / 低空经济</td><td class="wrap">首板换手板；题材航空机场 | 旅游概念 / 数字经济 / 低空经济；状态分80；量比5日1.16倍；距5日线5.45%；封单中封单；竞价平量承接(0.69%)；注意量能未明显放大；未创近20日新高</td></tr><tr><td>2026-06-16</td><td>扩展跟踪池</td><td>002997</td><td>瑞鹄模具</td><td>首板</td><td>换手板</td><td class="wrap">汽车零部件 | 一体化压铸 / 华为汽车 / 新型工业化</td><td class="wrap">首板换手板；题材汽车零部件 | 一体化压铸 / 华为汽车 / 新型工业化；状态分60；量比5日1.40倍；距5日线6.25%；封单强封单；竞价平量承接(1.09%)；注意趋势状态分低于80；未创近20日新高</td></tr></tbody></table></div></div>
+        </section>
+        <section class="section">
+            <div class="section-head">
+                <div>
+                    <h2>当前持仓</h2>
+                    <p>T+0 不卖，从持仓第 2 个交易日开始，按“非一字日分时高点附近兑现”处理。</p>
+                </div>
+            </div>
+            <div class="panel"><div class="table-wrap"><table><thead><tr><th>涨停日</th><th>来源池</th><th>股票代码</th><th>股票名称</th><th>买入日期</th><th>买入时间</th><th>买入价</th><th>股数</th><th>买入金额</th><th>最新价</th><th>持仓说明</th></tr></thead><tbody><tr><td colspan="11">当前没有记录</td></tr></tbody></table></div></div>
+        </section>
+        <section class="section">
+            <div class="section-head">
+                <div>
+                    <h2>历史记录</h2>
+                    <p>包含已卖出与次日未触板两类结果。买入按首次封板成交，卖出优先按分时高点回落/尾盘兑现。</p>
+                </div>
+            </div>
+            <div class="panel"><div class="table-wrap"><table><thead><tr><th>状态</th><th>涨停日</th><th>来源池</th><th>股票代码</th><th>股票名称</th><th>买入日期</th><th>买入时间</th><th>买入价</th><th>股数</th><th>卖出日期</th><th>卖出时间</th><th>卖出价</th><th>收益率(%)</th><th>卖出原因</th></tr></thead><tbody><tr><td colspan="14">当前没有记录</td></tr></tbody></table></div></div>
+        </section>
+        <div class="footer">最后刷新时间：2026-06-15 09:30:00</div>
+    </div>
+</body>
+</html>
